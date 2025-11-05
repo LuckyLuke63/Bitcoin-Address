@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitcoin Address Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/elliptic/6.5.4/elliptic.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .bitcoin-icon {
+            font-size: 50px;
+            margin-bottom: 15px;
+        }
+        
+        .warning {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 25px;
+            color: #856404;
+        }
+        
+        .warning strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: monospace;
+            transition: border-color 0.3s;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            display: none;
+        }
+        
+        .result.show {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .result-item {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .result-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .result-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        
+        .result-value {
+            font-size: 16px;
+            color: #333;
+            font-family: monospace;
+            word-break: break-all;
+        }
+        
+        .balance {
+            font-size: 24px;
+            font-weight: bold;
+            color: #28a745;
+        }
+        
+        .explorer-link {
+            color: #667eea;
+            text-decoration: none;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        
+        .explorer-link:hover {
+            text-decoration: underline;
+        }
+        
+        .error {
+            background: #f8d7da;
+            border: 2px solid #dc3545;
+            border-radius: 10px;
+            padding: 15px;
+            color: #721c24;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .error.show {
+            display: block;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .info {
+            background: #d1ecf1;
+            border: 2px solid #17a2b8;
+            border-radius: 10px;
+            padding: 15px;
+            color: #0c5460;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="bitcoin-icon">₿</div>
+            <h1>Bitcoin Address Viewer</h1>
+            <p style="color: #666;">Visualizza indirizzo e saldo da chiave privata</p>
+        </div>
+        
+        <div class="warning">
+            <strong>⚠️ Attenzione alla Sicurezza</strong>
+            Non inserire mai chiavi private di wallet reali con fondi! Questa app è solo per scopi educativi. La chiave privata viene processata solo localmente nel tuo browser.
+        </div>
+        
+        <div class="input-group">
+            <label for="privateKey">Chiave Privata (WIF Format):</label>
+            <input 
+                type="text" 
+                id="privateKey" 
+                placeholder="Es: 5HueCGU8rMjxEXxiPuD5BDku4MkFqeZyd4dZ1jvhTVqvbTLvyTJ"
+                autocomplete="off"
+            >
+        </div>
+        
+        <button onclick="processPrivateKey()" id="submitBtn">Genera Indirizzo e Controlla Saldo</button>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Elaborazione in corso...</p>
+        </div>
+        
+        <div class="error" id="error"></div>
+        
+        <div class="result" id="result">
+            <div class="result-item">
+                <div class="result-label">Indirizzo Bitcoin</div>
+                <div class="result-value" id="address"></div>
+            </div>
+            <div class="result-item">
+                <div class="result-label">Saldo Totale</div>
+                <div class="result-value balance" id="balance"></div>
+            </div>
+            <div class="result-item">
+                <div class="result-label">Transazioni Totali</div>
+                <div class="result-value" id="transactions"></div>
+            </div>
+            <div class="result-item">
+                <div class="result-label">Explorer</div>
+                <div class="result-value">
+                    <a href="#" id="explorerLink" target="_blank" class="explorer-link">Visualizza su Blockchain Explorer →</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="info">
+            <strong>ℹ️ Come funziona:</strong><br>
+            1. La chiave privata viene decodificata localmente nel browser<br>
+            2. Viene derivato l'indirizzo Bitcoin pubblico usando crittografia ellittica<br>
+            3. Il saldo viene recuperato tramite API pubbliche (blockstream.info)
+        </div>
+    </div>
+
+    <script>
+        const ec = new elliptic.ec('secp256k1');
+        
+        // Base58 encoding/decoding
+        const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+        
+        function base58Decode(string) {
+            const bytes = [0];
+            for (let i = 0; i < string.length; i++) {
+                const c = string[i];
+                const value = ALPHABET.indexOf(c);
+                if (value === -1) return null;
+                
+                for (let j = 0; j < bytes.length; j++) {
+                    bytes[j] *= 58;
+                }
+                bytes[0] += value;
+                
+                let carry = 0;
+                for (let j = 0; j < bytes.length; j++) {
+                    bytes[j] += carry;
+                    carry = bytes[j] >> 8;
+                    bytes[j] &= 0xff;
+                }
+                while (carry) {
+                    bytes.push(carry & 0xff);
+                    carry >>= 8;
+                }
+            }
+            
+            for (let i = 0; i < string.length && string[i] === '1'; i++) {
+                bytes.push(0);
+            }
+            
+            return new Uint8Array(bytes.reverse());
+        }
+        
+        function base58Encode(bytes) {
+            const digits = [0];
+            for (let i = 0; i < bytes.length; i++) {
+                for (let j = 0; j < digits.length; j++) {
+                    digits[j] <<= 8;
+                }
+                digits[0] += bytes[i];
+                let carry = 0;
+                for (let j = 0; j < digits.length; j++) {
+                    digits[j] += carry;
+                    carry = (digits[j] / 58) | 0;
+                    digits[j] %= 58;
+                }
+                while (carry) {
+                    digits.push(carry % 58);
+                    carry = (carry / 58) | 0;
+                }
+            }
+            
+            for (let i = 0; i < bytes.length && bytes[i] === 0; i++) {
+                digits.push(0);
+            }
+            
+            return digits.reverse().map(d => ALPHABET[d]).join('');
+        }
+        
+        function sha256(data) {
+            if (typeof data === 'string') {
+                return CryptoJS.SHA256(CryptoJS.enc.Hex.parse(data)).toString();
+            }
+            return CryptoJS.SHA256(data).toString();
+        }
+        
+        function ripemd160(hex) {
+            return CryptoJS.RIPEMD160(CryptoJS.enc.Hex.parse(hex)).toString();
+        }
+        
+        function hexToBytes(hex) {
+            const bytes = [];
+            for (let i = 0; i < hex.length; i += 2) {
+                bytes.push(parseInt(hex.substr(i, 2), 16));
+            }
+            return new Uint8Array(bytes);
+        }
+        
+        function privateKeyToAddress(wif) {
+            // Decode WIF
+            const decoded = base58Decode(wif);
+            if (!decoded || decoded.length < 37) {
+                throw new Error("Chiave privata WIF non valida");
+            }
+            
+            // Verify checksum
+            const payload = decoded.slice(0, -4);
+            const checksum = decoded.slice(-4);
+            const hash = sha256(sha256(Array.from(payload).map(b => b.toString(16).padStart(2, '0')).join('')));
+            const calculatedChecksum = hash.substring(0, 8);
+            const providedChecksum = Array.from(checksum).map(b => b.toString(16).padStart(2, '0')).join('');
+            
+            if (calculatedChecksum !== providedChecksum) {
+                throw new Error("Checksum non valido - chiave privata corrotta");
+            }
+            
+            // Extract private key (skip version byte)
+            const compressed = decoded.length === 38;
+            const privateKeyBytes = decoded.slice(1, compressed ? 33 : 33);
+            const privateKeyHex = Array.from(privateKeyBytes)
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('');
+            
+            // Generate public key using elliptic curve
+            const keyPair = ec.keyFromPrivate(privateKeyHex);
+            const publicKey = keyPair.getPublic();
+            const publicKeyHex = compressed 
+                ? publicKey.encodeCompressed('hex')
+                : publicKey.encode('hex');
+            
+            // Hash public key (SHA256 then RIPEMD160)
+            const sha = sha256(publicKeyHex);
+            const ripe = ripemd160(sha);
+            
+            // Add version byte (0x00 for mainnet P2PKH)
+            const versioned = '00' + ripe;
+            
+            // Calculate checksum (first 4 bytes of double SHA256)
+            const addressChecksum = sha256(sha256(versioned)).substring(0, 8);
+            
+            // Combine and encode to Base58
+            const addressHex = versioned + addressChecksum;
+            const addressBytes = hexToBytes(addressHex);
+            
+            return base58Encode(addressBytes);
+        }
+        
+        async function getBalance(address) {
+            // Try multiple APIs and methods
+            const methods = [
+                // Method 1: Direct BlockCypher (usually works)
+                async () => {
+                    const response = await fetch(`https://api.blockcypher.com/v1/btc/main/addrs/${address}/balance`);
+                    if (!response.ok) throw new Error('BlockCypher failed');
+                    const data = await response.json();
+                    return {
+                        balance: data.balance / 100000000,
+                        transactions: data.n_tx,
+                        received: data.total_received / 100000000
+                    };
+                },
+                // Method 2: Blockchain.info with JSONP workaround
+                async () => {
+                    const response = await fetch(`https://blockchain.info/q/addressbalance/${address}?cors=true`);
+                    if (!response.ok) throw new Error('Blockchain.info failed');
+                    const satoshis = await response.text();
+                    const balance = parseInt(satoshis) / 100000000;
+                    
+                    const txResponse = await fetch(`https://blockchain.info/q/getreceivedbyaddress/${address}?cors=true`);
+                    const received = await txResponse.text();
+                    
+                    return {
+                        balance: balance,
+                        transactions: 'N/A',
+                        received: parseInt(received) / 100000000
+                    };
+                },
+                // Method 3: CORS proxy approach
+                async () => {
+                    const proxyUrl = 'https://corsproxy.io/?';
+                    const response = await fetch(proxyUrl + encodeURIComponent(`https://blockstream.info/api/address/${address}`));
+                    if (!response.ok) throw new Error('Proxy failed');
+                    const data = await response.json();
+                    return {
+                        balance: (data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum) / 100000000,
+                        transactions: data.chain_stats.tx_count,
+                        received: data.chain_stats.funded_txo_sum / 100000000
+                    };
+                },
+                // Method 4: Alternative proxy
+                async () => {
+                    const response = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(`https://mempool.space/api/address/${address}`)}`);
+                    if (!response.ok) throw new Error('AllOrigins failed');
+                    const data = await response.json();
+                    return {
+                        balance: (data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum) / 100000000,
+                        transactions: data.chain_stats.tx_count,
+                        received: data.chain_stats.funded_txo_sum / 100000000
+                    };
+                }
+            ];
+            
+            let lastError = null;
+            
+            for (let i = 0; i < methods.length; i++) {
+                try {
+                    console.log(`Tentativo metodo ${i + 1}...`);
+                    const result = await methods[i]();
+                    console.log(`✓ Successo con metodo ${i + 1}`);
+                    return result;
+                } catch (error) {
+                    console.warn(`✗ Metodo ${i + 1} fallito:`, error.message);
+                    lastError = error;
+                    continue;
+                }
+            }
+            
+            throw new Error('Impossibile recuperare il saldo. Controlla l\'explorer.');
+        }
+        
+        async function processPrivateKey() {
+            const privateKey = document.getElementById('privateKey').value.trim();
+            const loading = document.getElementById('loading');
+            const result = document.getElementById('result');
+            const error = document.getElementById('error');
+            const submitBtn = document.getElementById('submitBtn');
+            
+            // Reset UI
+            result.classList.remove('show');
+            error.classList.remove('show');
+            
+            if (!privateKey) {
+                error.textContent = 'Inserisci una chiave privata valida';
+                error.classList.add('show');
+                return;
+            }
+            
+            loading.classList.add('show');
+            submitBtn.disabled = true;
+            
+            try {
+                // Generate address
+                const address = privateKeyToAddress(privateKey);
+                console.log('Indirizzo generato:', address);
+                
+                // Always display the address first
+                document.getElementById('address').textContent = address;
+                const explorerLink = document.getElementById('explorerLink');
+                explorerLink.href = `https://mempool.space/address/${address}`;
+                
+                // Try to get balance
+                try {
+                    const balanceInfo = await getBalance(address);
+                    document.getElementById('balance').textContent = `${balanceInfo.balance.toFixed(8)} BTC`;
+                    document.getElementById('transactions').textContent = balanceInfo.transactions;
+                } catch (balanceError) {
+                    console.error('Balance fetch error:', balanceError);
+                    document.getElementById('balance').textContent = '❓ Non disponibile (vedi explorer)';
+                    document.getElementById('transactions').textContent = 'Clicca sul link Explorer per vedere i dettagli';
+                }
+                
+                loading.classList.remove('show');
+                result.classList.add('show');
+                
+            } catch (err) {
+                loading.classList.remove('show');
+                error.textContent = `❌ ${err.message}`;
+                error.classList.add('show');
+            } finally {
+                submitBtn.disabled = false;
+            }
+        }
+        
+        // Allow Enter key to submit
+        document.getElementById('privateKey').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                processPrivateKey();
+            }
+        });
+    </script>
+</body>
+</html>
