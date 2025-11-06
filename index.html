@@ -624,6 +624,9 @@
                         error: null
                     });
                 }
+
+                // Filter addresses with positive balance
+                const addressesWithBalance = addresses.filter(addr => addr.balance > 0);
                 
                 if (addressesWithBalance.length === 0) {
                     // All balances are zero
