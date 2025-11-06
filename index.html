@@ -251,7 +251,7 @@
         <button onclick="processPrivateKey()" id="submitBtn">Genera Indirizzo e Controlla Saldo</button>
         
         <button onclick="generateAndCheckRandom()" id="randomBtn" style="margin-top: 15px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-            🎲 Genera 5 Chiavi Casuali e Verifica
+            🎲 Genera 10 Chiavi Casuali e Verifica
         </button>
         
         <button onclick="resetAll()" id="resetBtn" style="margin-top: 15px; background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);">
@@ -607,8 +607,8 @@
             try {
                 const addresses = [];
                 
-                // Generate 2 random keys
-                for (let i = 0; i < 5; i++) {
+                // Generate n random keys
+                for (let i = 0; i < 10; i++) {
                     const privateKey = generateRandomPrivateKey();
                     const address = privateKeyToAddress(privateKey);
                     
