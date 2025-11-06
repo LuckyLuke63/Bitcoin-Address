@@ -625,6 +625,27 @@
                     });
                 }
 
+                // Display loading message
+                const container = document.getElementById('randomAddresses');
+                container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">⏳ Controllo saldi in corso...</div>';
+                
+                loading.classList.remove('show');
+                randomResult.classList.add('show');
+                
+                // Check balances first
+                for (const addr of addresses) {
+                    try {
+                        const balanceInfo = await getBalance(addr.address);
+                        addr.balance = balanceInfo.balance;
+                        addr.transactions = balanceInfo.transactions;
+                    } catch (balanceError) {
+                        console.error(`Errore recupero saldo per chiave ${addr.number}:`, balanceError);
+                        addr.balance = 0;
+                        addr.transactions = 'N/A';
+                        addr.error = true;
+                    }
+                }
+
                 // Filter addresses with positive balance
                 const addressesWithBalance = addresses.filter(addr => addr.balance > 0);
                 
