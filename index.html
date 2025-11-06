@@ -607,7 +607,7 @@
             try {
                 const addresses = [];
                 
-                // Generate 5 random keys
+                // Generate 2 random keys
                 for (let i = 0; i < 5; i++) {
                     const privateKey = generateRandomPrivateKey();
                     const address = privateKeyToAddress(privateKey);
@@ -624,7 +624,7 @@
                         error: null
                     });
                 }
-
+                
                 // Display loading message
                 const container = document.getElementById('randomAddresses');
                 container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">⏳ Controllo saldi in corso...</div>';
@@ -645,7 +645,7 @@
                         addr.error = true;
                     }
                 }
-
+                
                 // Filter addresses with positive balance
                 const addressesWithBalance = addresses.filter(addr => addr.balance > 0);
                 
@@ -684,27 +684,6 @@
                             </div>
                         </div>
                     `).join('');
-                }
-                
-                loading.classList.remove('show');
-                randomResult.classList.add('show');
-                
-                // Check balances asynchronously
-                for (const addr of addresses) {
-                    try {
-                        const balanceInfo = await getBalance(addr.address);
-                        document.getElementById(`balance-${addr.number}`).textContent = `${balanceInfo.balance.toFixed(8)} BTC`;
-                        document.getElementById(`tx-${addr.number}`).textContent = balanceInfo.transactions;
-                        
-                        if (balanceInfo.balance > 0) {
-                            document.getElementById(`balance-${addr.number}`).style.color = '#dc3545';
-                            document.getElementById(`balance-${addr.number}`).innerHTML = `💰 ${balanceInfo.balance.toFixed(8)} BTC<br><span style="font-size: 14px;">🎉 TROVATO SALDO!</span>`;
-                        }
-                    } catch (balanceError) {
-                        console.error(`Errore recupero saldo per chiave ${addr.number}:`, balanceError);
-                        document.getElementById(`balance-${addr.number}`).textContent = '❓ Non disponibile';
-                        document.getElementById(`tx-${addr.number}`).textContent = 'Vedi explorer';
-                    }
                 }
                 
             } catch (err) {
