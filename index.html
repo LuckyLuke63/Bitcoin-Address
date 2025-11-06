@@ -250,6 +250,14 @@
         
         <button onclick="processPrivateKey()" id="submitBtn">Genera Indirizzo e Controlla Saldo</button>
         
+        <button onclick="generateAndCheckRandom()" id="randomBtn" style="margin-top: 15px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+            🎲 Genera 2 Chiavi Casuali e Verifica
+        </button>
+        
+        <button onclick="resetAll()" id="resetBtn" style="margin-top: 15px; background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);">
+            🔄 Resetta Tutto
+        </button>
+        
         <div class="loading" id="loading">
             <div class="spinner"></div>
             <p>Elaborazione in corso...</p>
@@ -276,6 +284,11 @@
                     <a href="#" id="explorerLink" target="_blank" class="explorer-link">Visualizza su Blockchain Explorer →</a>
                 </div>
             </div>
+        </div>
+
+        <div class="result" id="randomResult">
+            <h3 style="margin-bottom: 20px; color: #333;">Risultati Chiavi Casuali</h3>
+            <div id="randomAddresses"></div>
         </div>
 
         <div class="info">
@@ -366,6 +379,30 @@
                 bytes.push(parseInt(hex.substr(i, 2), 16));
             }
             return new Uint8Array(bytes);
+        }
+        
+        function generateRandomPrivateKey() {
+            // Generate 32 random bytes for private key
+            const privateKeyBytes = new Uint8Array(32);
+            crypto.getRandomValues(privateKeyBytes);
+            
+            // Convert to hex
+            const privateKeyHex = Array.from(privateKeyBytes)
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('');
+            
+            // Create WIF format (mainnet, uncompressed)
+            // Version byte: 0x80 for mainnet
+            const versionByte = '80';
+            const extendedKey = versionByte + privateKeyHex;
+            
+            // Calculate checksum
+            const checksum = sha256(sha256(extendedKey)).substring(0, 8);
+            const fullKey = extendedKey + checksum;
+            
+            // Convert to Base58
+            const keyBytes = hexToBytes(fullKey);
+            return base58Encode(keyBytes);
         }
         
         function privateKeyToAddress(wif) {
@@ -549,6 +586,135 @@
                 processPrivateKey();
             }
         });
+        
+        async function generateAndCheckRandom() {
+            const loading = document.getElementById('loading');
+            const randomResult = document.getElementById('randomResult');
+            const result = document.getElementById('result');
+            const error = document.getElementById('error');
+            const randomBtn = document.getElementById('randomBtn');
+            const submitBtn = document.getElementById('submitBtn');
+            
+            // Reset UI
+            result.classList.remove('show');
+            randomResult.classList.remove('show');
+            error.classList.remove('show');
+            
+            loading.classList.add('show');
+            randomBtn.disabled = true;
+            submitBtn.disabled = true;
+            
+            try {
+                const addresses = [];
+                
+                // Generate 2 random keys
+                for (let i = 0; i < 2; i++) {
+                    const privateKey = generateRandomPrivateKey();
+                    const address = privateKeyToAddress(privateKey);
+                    
+                    console.log(`Chiave ${i + 1}:`, privateKey);
+                    console.log(`Indirizzo ${i + 1}:`, address);
+                    
+                    addresses.push({
+                        number: i + 1,
+                        privateKey: privateKey,
+                        address: address,
+                        balance: null,
+                        transactions: null,
+                        error: null
+                    });
+                }
+                
+                // Display results immediately
+                const container = document.getElementById('randomAddresses');
+                container.innerHTML = addresses.map(addr => `
+                    <div style="background: #fff; border: 2px solid #ddd; border-radius: 10px; padding: 20px; margin-bottom: 20px;">
+                        <h4 style="color: #667eea; margin-bottom: 15px;">🔑 Chiave Casuale #${addr.number}</h4>
+                        <div style="margin-bottom: 10px;">
+                            <div style="font-size: 12px; color: #666; margin-bottom: 5px;">CHIAVE PRIVATA (WIF)</div>
+                            <div style="font-family: monospace; font-size: 12px; word-break: break-all; background: #f8f9fa; padding: 10px; border-radius: 5px;">${addr.privateKey}</div>
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <div style="font-size: 12px; color: #666; margin-bottom: 5px;">INDIRIZZO BITCOIN</div>
+                            <div style="font-family: monospace; font-size: 14px; word-break: break-all; color: #333;">${addr.address}</div>
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <div style="font-size: 12px; color: #666; margin-bottom: 5px;">SALDO</div>
+                            <div id="balance-${addr.number}" style="font-size: 18px; font-weight: bold; color: #28a745;">⏳ Controllo in corso...</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 12px; color: #666; margin-bottom: 5px;">TRANSAZIONI</div>
+                            <div id="tx-${addr.number}">⏳ Controllo in corso...</div>
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <a href="https://mempool.space/address/${addr.address}" target="_blank" class="explorer-link">Visualizza su Explorer →</a>
+                        </div>
+                    </div>
+                `).join('');
+                
+                loading.classList.remove('show');
+                randomResult.classList.add('show');
+                
+                // Check balances asynchronously
+                for (const addr of addresses) {
+                    try {
+                        const balanceInfo = await getBalance(addr.address);
+                        document.getElementById(`balance-${addr.number}`).textContent = `${balanceInfo.balance.toFixed(8)} BTC`;
+                        document.getElementById(`tx-${addr.number}`).textContent = balanceInfo.transactions;
+                        
+                        if (balanceInfo.balance > 0) {
+                            document.getElementById(`balance-${addr.number}`).style.color = '#dc3545';
+                            document.getElementById(`balance-${addr.number}`).innerHTML = `💰 ${balanceInfo.balance.toFixed(8)} BTC<br><span style="font-size: 14px;">🎉 TROVATO SALDO!</span>`;
+                        }
+                    } catch (balanceError) {
+                        console.error(`Errore recupero saldo per chiave ${addr.number}:`, balanceError);
+                        document.getElementById(`balance-${addr.number}`).textContent = '❓ Non disponibile';
+                        document.getElementById(`tx-${addr.number}`).textContent = 'Vedi explorer';
+                    }
+                }
+                
+            } catch (err) {
+                loading.classList.remove('show');
+                error.textContent = `❌ ${err.message}`;
+                error.classList.add('show');
+            } finally {
+                randomBtn.disabled = false;
+                submitBtn.disabled = false;
+            }
+        }
+        
+        function resetAll() {
+            // Clear input field
+            document.getElementById('privateKey').value = '';
+            
+            // Hide all result sections
+            document.getElementById('result').classList.remove('show');
+            document.getElementById('randomResult').classList.remove('show');
+            document.getElementById('error').classList.remove('show');
+            document.getElementById('loading').classList.remove('show');
+            
+            // Clear result contents
+            document.getElementById('address').textContent = '';
+            document.getElementById('balance').textContent = '';
+            document.getElementById('transactions').textContent = '';
+            document.getElementById('explorerLink').href = '#';
+            document.getElementById('randomAddresses').innerHTML = '';
+            
+            // Re-enable buttons
+            document.getElementById('submitBtn').disabled = false;
+            document.getElementById('randomBtn').disabled = false;
+            
+            // Optional: Add a subtle feedback
+            const resetBtn = document.getElementById('resetBtn');
+            const originalText = resetBtn.innerHTML;
+            resetBtn.innerHTML = '✓ Reset Completato';
+            resetBtn.style.background = 'linear-gradient(135deg, #51cf66 0%, #37b24d 100%)';
+            
+            setTimeout(() => {
+                resetBtn.innerHTML = originalText;
+                resetBtn.style.background = 'linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)';
+            }, 1500);
+        }
     </script>
 </body>
 </html>
