@@ -251,7 +251,7 @@
         <button onclick="processPrivateKey()" id="submitBtn">Genera Indirizzo e Controlla Saldo</button>
         
         <button onclick="generateAndCheckRandom()" id="randomBtn" style="margin-top: 15px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-            🎲 Genera 10 Chiavi Sequenziali e Verifica
+            🎲 Genera 25 Chiavi Sequenziali e Verifica
         </button>
         
         <button onclick="resetAll()" id="resetBtn" style="margin-top: 15px; background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);">
@@ -645,8 +645,8 @@
                     .map(b => b.toString(16).padStart(2, '0'))
                     .join('');
                 
-                // Generate 10 keys in sequence starting from first random
-                for (let i = 0; i < 10; i++) {
+                // Generate 25 keys in sequence starting from first random
+                for (let i = 0; i < 25; i++) {
                     const privateKey = hexToWIF(currentKeyHex);
                     const address = privateKeyToAddress(privateKey);
                     
